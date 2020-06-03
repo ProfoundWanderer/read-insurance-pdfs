@@ -1,5 +1,7 @@
 from datetime import datetime
+import glob
 import os
+import sys
 import tabula
 
 
@@ -35,10 +37,10 @@ def convert_pdf_to_csv(file_path):
     try:
         if os.stat(new_file_path).st_size == 0:
             print('File empty')
-            exit()
+            sys.exit()
     except FileNotFoundError:
         print('CSV file not found, please make sure it was created.')
-        exit()
+        sys.exit()
 
     return new_file_path
 
@@ -50,4 +52,9 @@ def date_check(input_date):
     today = datetime.now().date()
     if input_date <= today:
         print('This insurance appears to be expired.')
-        exit()
+        sys.exit()
+
+
+def dir_cleanup():
+    for f in glob.glob('./test-files/tmp/.*'):
+        os.remove(f)

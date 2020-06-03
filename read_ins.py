@@ -1,15 +1,26 @@
+# standard imports
 from collections import defaultdict
 import csv
 from datetime import datetime
 from dateutil.parser import parse
 import phonenumbers
 import re
+import sys
 import util_funcs
+# local imports
 
 
 def gather_insurance_information(file_path):
     """
     Gathers insurance information and returns the dict with all the information
+
+    - works for normal/standard acord pdf documents that aren't images
+    - even if there are other documents in the pdf it will get the acord document and information
+    - if two acord documents in one pdf then it was get the first one but if the second one is different then the info
+        will be updated to the info in the next. Will keep happening until it gets to last acord document. Could try to
+        handle this differently but this case is pretty rare so hard to test/see.
+    - will not work on non acord insurance (e.g. progressive) or if it is a picture even if picture is in pdf
+    - There are some scenarios it will not cover but hopefully this takes care of a 90% until it can be improved
     """
 
     # converts file to csv and checks if the csv file is empty
@@ -104,7 +115,7 @@ def gather_insurance_information(file_path):
                                 print('Effective Date:', eff_date)
                             except ValueError:
                                 print('Effective Date: Invalid')
-                                exit()
+                                sys.exit()
 
                             try:
                                 expi_date = row[ind + 1]
@@ -114,7 +125,7 @@ def gather_insurance_information(file_path):
                                 print('Expiration Date:', expi_date)
                             except ValueError:
                                 print('Expiration Date: Invalid')
-                                exit()
+                                sys.exit()
 
                             coverage_amount_list = re.findall(r'[ 0-9]+', row[ind + 3])
                             if '00' in coverage_amount_list:  # ['1', '000', '000','00']
@@ -148,7 +159,7 @@ def gather_insurance_information(file_path):
                                 print('Effective Date:', eff_date)
                             except ValueError:
                                 print('Effective Date: Invalid')
-                                exit()
+                                sys.exit()
 
                             try:
                                 expi_date = row[ind + 1].split('\n')[0].strip()
@@ -158,7 +169,7 @@ def gather_insurance_information(file_path):
                                 print('Expiration Date:', expi_date)
                             except ValueError:
                                 print('Expiration Date: Invalid')
-                                exit()
+                                sys.exit()
 
                             if 'DED $' in row[7].upper() or 'LIMIT/DED' in row[7].upper() or 'DEDUCTIBLE\n' in row[7].upper():
                                 if row[ind + 3].upper().count(',') >= 2:
@@ -208,27 +219,47 @@ def gather_insurance_information(file_path):
                         except:  # dateutil.parser._parser.ParserError
                             ind += 1
 
+    # check dictonary to make sure it contains needed information
+    try:
+        insurance_dict['automobile_liability']['policy_number']
+    except:
+        print('Unable to find auto policy number.')
+
+    try:
+        insurance_dict['cargo']['policy_number']
+    except:
+        print('Unable to find cargo policy number.')
+
+    try:
+        insurance_dict['automobile_liability']['coverage_amount']
+        if int(insurance_dict['automobile_liability']['coverage_amount']) < 1000000:
+            print('Unable to find automobile liability coverage amount above $1,000,000.')
+            sys.exit()
+    except:
+        print('Unable to find automobile liability coverage amount.')
+
+    try:
+        insurance_dict['cargo']['coverage_amount']
+        if int(insurance_dict['cargo']['coverage_amount']) < 100000:
+            print('Unable to find cargo coverage amount above $100,000.')
+    except:
+        print('Unable to find cargo coverage amount.')
+
+    try:
+        insurance_dict['automobile_liability']['effective_date']
+        insurance_dict['automobile_liability']['expiration_date']
+    except:
+        print('Unable to find insurance effective date.')
+
+    try:
+        insurance_dict['cargo']['effective_date']
+        insurance_dict['cargo']['expiration_date']
+    except:
+        print('Unable to find insurance expiration date.')
+
     return dict(insurance_dict)
 
 
 if __name__ == '__main__':
-    # - works for normal/standard acord pdf documents that aren't images
-    # - even if there are other documents in the pdf it will get the acord document and information
-    # - if two acord documents in one pdf then it was get the first one but if the second one is different then the info
-    #   will be updated to the info in the next. Will keep happening until it gets to last acord document. Could try to
-    #   handle this differently but this case is pretty rare so hard to test/see.
-    # - will not work on non acord insurance (e.g. progressive) or if it is a picture even if picture is in pdf
-
-    results = gather_insurance_information('/test-files/13.pdf')
-    try:
-        results['automobile_liability']['effective_date']
-        results['automobile_liability']['expiration_date']
-    except:
-        try:
-            results['cargo']['effective_date']
-            results['cargo']['expiration_date']
-
-            print(results)
-        except:
-            print('Can\'t use')
+    gather_insurance_information('/test-files/999.pdf')
 
